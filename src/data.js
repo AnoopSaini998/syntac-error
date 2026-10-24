@@ -117,6 +117,7 @@ export const INITIAL_FEED = [
       subtitle: "Pure chaos hiding in plain sight.",
       image:
         "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=800&q=80",
+      votes: 198,
     },
     right: {
       id: "memento",
@@ -124,6 +125,7 @@ export const INITIAL_FEED = [
       subtitle: "A puzzle that rewires your brain.",
       image:
         "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
+      votes: 149,
     },
     comments: 32,
     votes: 347,
@@ -248,6 +250,68 @@ export const TOP_PLAYERS = [
   { rank: 4, handle: "JR", name: "JordanR", xp: 285, days: "10 days" },
   { rank: 5, handle: "NT", name: "NinaT", xp: 260, days: "8 days" },
   { rank: 6, handle: "DB", name: "DevB", xp: 240, days: "8 days" },
+  { rank: 7, handle: "LK", name: "LeahK", xp: 228, days: "7 days" },
+  { rank: 8, handle: "PS", name: "PriyaS", xp: 214, days: "6 days" },
+  { rank: 9, handle: "OM", name: "OmarM", xp: 201, days: "6 days" },
+  { rank: 10, handle: "CW", name: "ChrisW", xp: 188, days: "5 days" },
+];
+
+export const DEBATE_XP_REQUIRED = 1000;
+
+export const DEBATE_NOUNS = {
+  movies: "Movie",
+  songs: "Song",
+  places: "Place",
+  finance: "Finance",
+  events: "Event",
+  lifestyle: "Lifestyle",
+  sports: "Sports",
+  resources: "Book",
+  general: "General",
+};
+
+const TECH_TOPICS = new Set(["AI Tools", "Tech & Dev Kits"]);
+
+export function getDebateNoun(category, selectedTopics = []) {
+  if (selectedTopics.length) {
+    if (selectedTopics.every((topic) => TECH_TOPICS.has(topic))) return "Tech";
+    const cats = [
+      ...new Set(selectedTopics.map((topic) => TOPIC_CATEGORIES[topic]).filter(Boolean)),
+    ];
+    if (cats.length === 1) return DEBATE_NOUNS[cats[0]] || "";
+  }
+  return DEBATE_NOUNS[category] || "";
+}
+
+export const NOTIFICATIONS = [
+  {
+    id: "n1",
+    title: "New upvote",
+    body: "MayaR upvoted your pick Shutter Island",
+    time: "2m ago",
+    unread: true,
+  },
+  {
+    id: "n2",
+    title: "Quiz reminder",
+    body: "Today’s quiz is live — keep your streak going",
+    time: "1h ago",
+    unread: true,
+  },
+  {
+    id: "n3",
+    title: "Showdown ending soon",
+    body: "Fight Club vs Memento closes in 12 hours",
+    time: "3h ago",
+    unread: false,
+  },
+  {
+    id: "n4",
+    title: "Trending save",
+    body: "Third Wave Coffee is climbing the feed",
+    time: "Yesterday",
+    unread: false,
+  },
 ];
 
 export const LEVELS = [

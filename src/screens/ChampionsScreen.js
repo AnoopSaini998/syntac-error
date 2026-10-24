@@ -32,20 +32,20 @@ export default function ChampionsScreen({ user, quizXp }) {
         <PodiumPlace place={3} person={podium[2]} />
       </div>
 
-      <section className="card">
+      <section className="card leaderboard-card">
         <div className="section-row">
-          <h2>Top players</h2>
-          <span className="muted">Quiz XP</span>
+          <h2>Top 10 players</h2>
+          <span className="muted">Quiz Gold Coins</span>
         </div>
         {TOP_PLAYERS.map((person) => (
           <div key={person.rank} className="leader-row">
             <span className="rank">#{person.rank}</span>
-            <span className="avatar sm">{person.handle}</span>
+            <span className={`avatar sm leader-avatar rank-${person.rank}`}>{person.handle}</span>
             <div>
               <strong>{person.name}</strong>
               <p>{person.days}</p>
             </div>
-            <strong>{person.xp} XP</strong>
+            <strong className="xp-pill">🪙 {person.xp}</strong>
           </div>
         ))}
       </section>
@@ -59,7 +59,7 @@ export default function ChampionsScreen({ user, quizXp }) {
         </div>
         <div className="rank-meta">
           <span>Top 15% this week</span>
-          <strong>{quizXp} XP</strong>
+          <strong>🪙 {quizXp}</strong>
         </div>
       </div>
     </div>
@@ -69,13 +69,13 @@ export default function ChampionsScreen({ user, quizXp }) {
 function PodiumPlace({ place, person, featured }) {
   return (
     <div className={`podium-place place-${place}${featured ? " featured" : ""}`}>
-      <div className={`avatar ${featured ? "lg gold" : "md"}`}>{person.handle}</div>
+      <div className={`avatar ${featured ? "lg gold" : "md"} podium-avatar`}>{person.handle}</div>
       {featured ? <span className="crown">👑</span> : null}
       <strong>{person.name}</strong>
       <p>
         🔥 {person.streak}-day streak
         <br />
-        {person.xp} XP
+        🪙 {person.xp}
       </p>
       <div className="stand">{place}</div>
     </div>

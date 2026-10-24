@@ -24,7 +24,7 @@ export default function QuizzesScreen({ user, onOpenLeaderboard, quizXp, onCompl
           <p className="eyebrow light">Daily quick play</p>
           <h2>Today’s Question #{QUIZ_QUESTION.number}</h2>
           <p>
-            1 Question · {QUIZ_QUESTION.seconds} seconds · +{QUIZ_QUESTION.xp} XP
+            1 Question · {QUIZ_QUESTION.seconds} seconds · +{QUIZ_QUESTION.xp} Gold Coins
           </p>
           <button type="button" className="btn-light" onClick={() => setPlaying(true)}>
             Play Today’s Question
@@ -60,7 +60,7 @@ export default function QuizzesScreen({ user, onOpenLeaderboard, quizXp, onCompl
           <p>Keep it going, {firstName}!</p>
         </div>
         <div className="mini-card">
-          <strong>{quizXp} Quiz XP</strong>
+          <strong>🪙 {quizXp} Quiz Gold Coins</strong>
           <p>This week</p>
         </div>
       </div>

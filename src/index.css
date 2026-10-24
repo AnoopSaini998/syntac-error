@@ -1,17 +1,20 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --purple: #5b3df5;
-  --purple-deep: #4b2ee0;
-  --purple-soft: #efe9ff;
-  --purple-mid: #7b61ff;
-  --ink: #16122a;
-  --muted: #7a7490;
-  --line: #eeeaf8;
-  --bg: #f6f4fb;
+  --purple: #6d4dff;
+  --purple-deep: #5533f5;
+  --purple-soft: #eee8ff;
+  --purple-mid: #8b6cff;
+  --ink: #17122c;
+  --muted: #6f6890;
+  --line: #ece6ff;
+  --bg: #f3eeff;
   --card: #ffffff;
-  --peach: #fff1ee;
-  --peach-ink: #d45b4a;
+  --peach: #ffe8e2;
+  --peach-ink: #e85d48;
+  --gold: #ffbf3c;
+  --gold-ink: #7a4d00;
+  --mint: #2fd3a0;
 }
 
 * {

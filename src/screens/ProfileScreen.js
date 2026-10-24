@@ -11,14 +11,19 @@ export default function ProfileScreen({
   const name = user?.displayName || "Your Name";
   const handle = user?.email ? `@${user.email.split("@")[0]}` : "@yourhandle";
   const initials = getInitials(user);
+  const currentLevel = [...LEVELS].reverse().find((level) => totalXp >= level.xp) || LEVELS[0];
+  const nextLevel = LEVELS.find((level) => level.xp > totalXp);
+  const progress = nextLevel
+    ? Math.min(100, Math.round(((totalXp - currentLevel.xp) / (nextLevel.xp - currentLevel.xp)) * 100))
+    : 100;
 
   return (
     <div className="screen profile-screen">
       <header className="profile-hero card">
         {user?.photoURL ? (
-          <img className="avatar xl photo" src={user.photoURL} alt="" />
+          <img className="avatar xl photo profile-avatar" src={user.photoURL} alt="" />
         ) : (
-          <div className="avatar xl">{initials}</div>
+          <div className="avatar xl profile-avatar">{initials}</div>
         )}
         <div>
           <h1>{name}</h1>
@@ -41,29 +46,38 @@ export default function ProfileScreen({
         </div>
         <div className="stat-card">
           <strong>{totalXp.toLocaleString()}</strong>
-          <span>Total XP</span>
+          <span>Total Gold Coins</span>
         </div>
       </div>
 
       <section className="card">
         <div className="section-row">
-          <h2>Level 12 — Curator</h2>
-          <span className="muted">{totalXp.toLocaleString()} / 7,000 XP</span>
+          <h2>
+            Level {currentLevel.level} — {currentLevel.title}
+          </h2>
+          <span className="muted">
+            🪙 {totalXp.toLocaleString()} / {(nextLevel?.xp || currentLevel.xp).toLocaleString()}
+          </span>
         </div>
         <div className="progress">
-          <span style={{ width: "68%" }} />
+          <span style={{ width: `${progress}%` }} />
         </div>
-        <p className="muted">68% to Level 13 — Tastemaker</p>
+        <p className="muted">
+          {nextLevel ? `${progress}% to Level ${nextLevel.level} — ${nextLevel.title}` : "Max level unlocked"}
+        </p>
       </section>
 
       <section>
         <h2 className="section-title">Universal Level Progression</h2>
-        <p className="muted tight">Cross-category XP</p>
+        <p className="muted tight">Cross-category Gold Coins</p>
         <div className="card">
           {LEVELS.map((level) => (
-            <div key={level.level} className={`level-row${level.current ? " is-current" : ""}`}>
-              <span className={`check${level.level <= 12 ? " done" : ""}`}>
-                {level.level <= 12 ? "✓" : level.level}
+            <div
+              key={level.level}
+              className={`level-row${level.level === currentLevel.level ? " is-current" : ""}`}
+            >
+              <span className={`check${totalXp >= level.xp ? " done" : ""}`}>
+                {totalXp >= level.xp ? "✓" : level.level}
               </span>
               <div>
                 <strong>
@@ -71,7 +85,7 @@ export default function ProfileScreen({
                 </strong>
                 <p>{level.detail}</p>
               </div>
-              <span className="muted">{level.xp.toLocaleString()} XP</span>
+              <span className="muted">🪙 {level.xp.toLocaleString()}</span>
             </div>
           ))}
         </div>
@@ -84,8 +98,8 @@ export default function ProfileScreen({
         </div>
         <p className="tiny caps">Overall rank</p>
         <div className="badge-row">
-          {BADGES.map((badge) => (
-            <div key={badge.id} className="badge-card">
+          {BADGES.map((badge, index) => (
+            <div key={badge.id} className={`badge-card${index === 0 ? " is-current" : ""}`}>
               <div className={`badge-icon ${badge.tone}`}>{badge.icon}</div>
               <strong>{badge.name}</strong>
               <p>{badge.meta}</p>
@@ -122,7 +136,7 @@ export default function ProfileScreen({
               <span className="tiny">{item.category}</span>
               <strong>{item.title}</strong>
             </div>
-            <span className="muted">↑ {item.upvotes || 15}</span>
+            <span className="muted">↑ {item.upvotes || 0}</span>
           </article>
         ))}
       </div>

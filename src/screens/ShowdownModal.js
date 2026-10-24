@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function ShowdownModal({ open, onClose, onSubmit }) {
+export default function ShowdownModal({ open, onClose, onSubmit, debateNoun }) {
   const [question, setQuestion] = useState("");
   const [left, setLeft] = useState("");
   const [right, setRight] = useState("");
@@ -41,7 +41,7 @@ export default function ShowdownModal({ open, onClose, onSubmit }) {
           <input
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Which movie had the most unhinged plot twist?"
+            placeholder={`Which ${debateNoun ? debateNoun.toLowerCase() : "pick"} had the most unhinged plot twist?`}
           />
         </label>
         <label>
@@ -54,7 +54,7 @@ export default function ShowdownModal({ open, onClose, onSubmit }) {
         </label>
 
         <button type="submit" className="btn-primary" disabled={!canPost}>
-          Post Showdown (+10 XP)
+          Post Showdown (+10 Gold Coins)
         </button>
       </form>
     </div>
