@@ -7,9 +7,17 @@ const FILTERS = [
   { id: "resources", label: "📚 Books" },
 ];
 
-export default function SavedPicksScreen({ items, onBack, onUnsave, onMarkWatched, watchedIds }) {
+export default function SavedPicksScreen({
+  items,
+  onBack,
+  onUnsave,
+  onMarkWatched,
+  onUnmarkWatched,
+  watchedIds,
+}) {
   const [tab, setTab] = useState("saved");
   const [filter, setFilter] = useState("all");
+  const [pendingId, setPendingId] = useState(null);
 
   const source =
     tab === "saved"
@@ -24,6 +32,23 @@ export default function SavedPicksScreen({ items, onBack, onUnsave, onMarkWatche
     movies: source.filter((item) => item.category === "movies").length,
     places: source.filter((item) => item.category === "places").length,
     resources: source.filter((item) => item.category === "resources").length,
+  };
+
+  const pendingItem = items.find((item) => item.id === pendingId);
+
+  const handleCheck = (id) => {
+    if (watchedIds.includes(id)) {
+      onUnmarkWatched(id);
+      return;
+    }
+    setPendingId(id);
+  };
+
+  const confirmWatched = (liked) => {
+    if (!pendingId) return;
+    onMarkWatched(pendingId, liked);
+    setPendingId(null);
+    setTab("watched");
   };
 
   return (
@@ -79,7 +104,7 @@ export default function SavedPicksScreen({ items, onBack, onUnsave, onMarkWatche
               <button type="button" onClick={() => onUnsave(item.id)} aria-label="Remove">
                 🗑
               </button>
-              <button type="button" className="check" onClick={() => onMarkWatched(item.id)} aria-label="Mark watched">
+              <button type="button" className="check" onClick={() => handleCheck(item.id)} aria-label="Mark watched">
                 {watchedIds.includes(item.id) ? "✓" : ""}
               </button>
             </div>
@@ -87,6 +112,24 @@ export default function SavedPicksScreen({ items, onBack, onUnsave, onMarkWatche
         ))}
         {visible.length === 0 ? <p className="empty-note">Nothing here yet.</p> : null}
       </div>
+
+      {pendingItem ? (
+        <div className="sheet-backdrop" onClick={() => setPendingId(null)}>
+          <div className="sheet confirm-sheet" onClick={(event) => event.stopPropagation()}>
+            <p className="eyebrow">Quick check</p>
+            <h2>Did you like it or not?</h2>
+            <p className="confirm-copy">{pendingItem.title}</p>
+            <div className="confirm-actions">
+              <button type="button" className="btn-primary" onClick={() => confirmWatched(true)}>
+                Yes
+              </button>
+              <button type="button" className="ghost-btn" onClick={() => confirmWatched(false)}>
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import { CATEGORY_CHIPS } from "../data";
+import { useState } from "react";
+import { CATEGORY_CHIPS, NOTIFICATIONS } from "../data";
+import GoldCoin from "../components/GoldCoin";
 
 export default function HomeScreen({
   user,
@@ -9,12 +11,24 @@ export default function HomeScreen({
   onOpenPost,
   savedIds,
   onToggleSave,
+  votedIds,
+  onUpvote,
   votes,
   onVote,
+  notesRead,
+  onOpenNotifications,
   topics,
   onCreateShowdown,
+  debateNoun,
+  canDebate,
+  debateXpRequired,
+  onDeletePost,
+  totalXp = 0,
 }) {
   const firstName = getFirstName(user);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const unread = notesRead ? 0 : NOTIFICATIONS.filter((note) => note.unread).length;
+  const debateTitle = debateNoun ? `Got a ${debateNoun} Debate?` : "Got a Debate?";
   const filtered = feed.filter((item) => {
     if (category !== "all" && item.category !== category) return false;
     if (topics?.length && !topics.includes(item.category)) return false;
@@ -29,8 +43,21 @@ export default function HomeScreen({
           <h1>Find your next favorite</h1>
         </div>
         <div className="header-actions">
-          <button className="icon-btn" type="button" aria-label="Notifications">
+          <div className="header-coin-pill" title="Total Gold Coins">
+            <GoldCoin size={15} />
+            <span>{totalXp}</span>
+          </div>
+          <button
+            className={`icon-btn${unread ? " has-badge" : ""}`}
+            type="button"
+            aria-label="Notifications"
+            onClick={() => {
+              onOpenNotifications?.();
+              setNotesOpen(true);
+            }}
+          >
             🔔
+            {unread ? <span className="note-dot">{unread}</span> : null}
           </button>
           <button className="icon-btn icon-btn-fill" type="button" onClick={onOpenPost} aria-label="Add">
             +
@@ -58,23 +85,33 @@ export default function HomeScreen({
         ))}
       </div>
 
-      <div className="debate-banner">
+      <div className={`debate-banner${canDebate ? "" : " is-locked"}`}>
         <div>
-          <strong>Got a movie debate?</strong>
-          <p>Let the community decide.</p>
+          <strong>{debateTitle}</strong>
+          <p>
+            {canDebate
+              ? "Let the community decide."
+              : `Locked until you reach ${debateXpRequired.toLocaleString()} Gold Coins.`}
+          </p>
         </div>
-        <button className="link-btn" type="button" onClick={onCreateShowdown}>
-          Create a Showdown
+        <button
+          className="link-btn"
+          type="button"
+          onClick={onCreateShowdown}
+          disabled={!canDebate}
+          title={canDebate ? "Create a showdown" : `Need ${debateXpRequired.toLocaleString()} Gold Coins to debate`}
+        >
+          {canDebate ? "Create a Showdown" : <span>🔒 1,000 <GoldCoin size={12} /></span>}
         </button>
       </div>
 
       {filtered.length === 0 ? (
         <div className="empty-card">
           <div className="empty-icon">🎬</div>
-          <h2>No community picks for this combo yet!</h2>
+          <h2>No community picks yet!</h2>
           <p>Start the conversation with your own hidden gem.</p>
           <button className="btn-primary" type="button" onClick={onOpenPost}>
-            Be the first to recommend one (+25 XP)
+            Be the first to recommend one (+15 <GoldCoin size={14} /> Gold Coins)
           </button>
         </div>
       ) : (
@@ -84,31 +121,39 @@ export default function HomeScreen({
               <ShowdownCard
                 key={item.id}
                 item={item}
+                user={user}
                 vote={votes[item.id]}
                 onVote={onVote}
+                onDelete={onDeletePost}
               />
             ) : (
               <RecommendationCard
                 key={item.id}
                 item={item}
+                user={user}
                 saved={savedIds.includes(item.id)}
+                upvoted={votedIds.includes(item.id)}
                 onToggleSave={onToggleSave}
+                onUpvote={onUpvote}
+                onDelete={onDeletePost}
               />
             )
           )}
-
-          <div className="daily-showdown">
-            <p className="eyebrow light">Daily Showdown</p>
-            <h3>Which movie has the more shocking plot twist?</h3>
-            <p>Vote to earn +10 XP · 8,420 votes</p>
-          </div>
         </div>
       )}
+
+      {notesOpen ? <NotificationsDrawer onClose={() => setNotesOpen(false)} /> : null}
     </div>
   );
 }
 
-function RecommendationCard({ item, saved, onToggleSave }) {
+function RecommendationCard({ item, user, saved, upvoted, onToggleSave, onUpvote, onDelete }) {
+  const canDelete =
+    item.mine ||
+    (user?.uid && item.authorId === user.uid) ||
+    (user?.displayName && item.author === user.displayName) ||
+    (user?.email && item.recommendedBy === `@${user.email.split("@")[0]}`);
+
   return (
     <article className="card rec-card">
       <div className="rec-top">
@@ -123,8 +168,24 @@ function RecommendationCard({ item, saved, onToggleSave }) {
       {item.image ? <img src={item.image} alt="" className="rec-image" /> : null}
       {item.quote ? <p className="quote">“{item.quote}”</p> : null}
       <div className="rec-actions">
-        <span>↑ {item.upvotes}</span>
-        <span>💬 {item.comments} comments</span>
+        <button
+          type="button"
+          className={`vote-btn${upvoted ? " is-voted" : ""}`}
+          onClick={() => onUpvote(item.id)}
+          aria-label={upvoted ? "Remove upvote" : "Upvote"}
+        >
+          ↑ {item.upvotes + (upvoted ? 1 : 0)}
+        </button>
+        {canDelete && (
+          <button
+            type="button"
+            className="delete-post-btn"
+            onClick={() => onDelete?.(item.id)}
+            title="Delete this recommendation"
+          >
+            🗑 Delete
+          </button>
+        )}
         <button
           className={`save-btn${saved ? " is-saved" : ""}`}
           type="button"
@@ -138,7 +199,17 @@ function RecommendationCard({ item, saved, onToggleSave }) {
   );
 }
 
-function ShowdownCard({ item, vote, onVote }) {
+function ShowdownCard({ item, user, vote, onVote, onDelete }) {
+  const canDelete =
+    item.mine ||
+    (user?.uid && item.authorId === user.uid) ||
+    (user?.displayName && item.author === user.displayName);
+
+  const revealed = Boolean(vote);
+  const leftVotes = (item.left.votes || 0) + (vote === item.left.id ? 1 : 0);
+  const rightVotes = (item.right.votes || 0) + (vote === item.right.id ? 1 : 0);
+  const totalVotes = leftVotes + rightVotes;
+
   return (
     <article className="card showdown-card">
       <div className="rec-top">
@@ -158,7 +229,11 @@ function ShowdownCard({ item, vote, onVote }) {
           <img src={item.left.image} alt="" />
           <strong>{item.left.title}</strong>
           <p>{item.left.subtitle}</p>
-          <span className="vote-chip">Vote {item.left.title}</span>
+          {revealed ? (
+            <span className="vote-chip is-count">{leftVotes} votes</span>
+          ) : (
+            <span className="vote-chip">Vote {item.left.title}</span>
+          )}
         </button>
         <div className="vs">VS</div>
         <button
@@ -169,14 +244,62 @@ function ShowdownCard({ item, vote, onVote }) {
           <img src={item.right.image} alt="" />
           <strong>{item.right.title}</strong>
           <p>{item.right.subtitle}</p>
-          <span className="vote-chip">Vote {item.right.title}</span>
+          {revealed ? (
+            <span className="vote-chip is-count">{rightVotes} votes</span>
+          ) : (
+            <span className="vote-chip">Vote {item.right.title}</span>
+          )}
         </button>
       </div>
-      <div className="rec-actions muted">
-        <span>💬 {item.comments} comments</span>
-        <span>{item.votes} votes cast</span>
+      <div className="rec-actions muted" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>{revealed ? `${totalVotes} votes cast` : "Vote to see the tally"}</span>
+        {canDelete && (
+          <button
+            type="button"
+            className="delete-post-btn"
+            onClick={() => onDelete?.(item.id)}
+            title="Delete this showdown"
+          >
+            🗑 Delete
+          </button>
+        )}
       </div>
     </article>
+  );
+}
+
+function NotificationsDrawer({ onClose }) {
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <aside className="sheet notes-sheet" onClick={(event) => event.stopPropagation()}>
+        <div className="sheet-head">
+          <div>
+            <p className="eyebrow">Stay in the loop</p>
+            <h2>Notifications</h2>
+          </div>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="notes-list">
+          {NOTIFICATIONS.length === 0 ? (
+            <p className="empty-note" style={{ padding: "24px 16px", textAlign: "center" }}>
+              No notifications yet.
+            </p>
+          ) : (
+            NOTIFICATIONS.map((note) => (
+              <article key={note.id} className="note-row">
+                <div>
+                  <strong>{note.title}</strong>
+                  <p>{note.body}</p>
+                </div>
+                <span>{note.time}</span>
+              </article>
+            ))
+          )}
+        </div>
+      </aside>
+    </div>
   );
 }
 

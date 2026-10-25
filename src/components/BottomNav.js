@@ -3,7 +3,7 @@ const TABS = [
   { id: "champions", label: "Champions", icon: TrophyIcon },
   { id: "post", label: "Post", icon: PlusIcon, center: true },
   { id: "quizzes", label: "Quizzes", icon: BoltIcon },
-  { id: "profile", label: "My XP", icon: PersonIcon },
+  { id: "profile", label: "Profile", icon: PersonIcon },
 ];
 
 export default function BottomNav({ active, onChange, onPost }) {

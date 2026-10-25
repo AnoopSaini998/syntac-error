@@ -1,14 +1,22 @@
 import { useState } from "react";
-import { TOP_PLAYERS, WEEKLY_CHAMPIONS } from "../data";
+import GoldCoin from "../components/GoldCoin";
 
-export default function ChampionsScreen({ user, quizXp }) {
+export default function ChampionsScreen({ user, quizXp = 0, streak = 0, leaderboard = [] }) {
   const initials = getInitials(user);
   const [range, setRange] = useState("week");
-  const podium = range === "week" ? WEEKLY_CHAMPIONS : WEEKLY_CHAMPIONS.map((person) => ({
-    ...person,
-    xp: person.xp + 900,
-    streak: person.streak + 20,
-  }));
+
+  const players = range === "week"
+    ? leaderboard
+    : leaderboard.map((person) => ({
+        ...person,
+        xp: person.xp + 50,
+      }));
+
+  const userRankIndex = players.findIndex((p) => p.uid === user?.uid);
+  const userRank = userRankIndex >= 0 ? userRankIndex + 1 : null;
+
+  const podium = players.slice(0, 3);
+  const topPlayers = players.slice(3, 10);
 
   return (
     <div className="screen">
@@ -26,40 +34,56 @@ export default function ChampionsScreen({ user, quizXp }) {
         </button>
       </div>
 
-      <div className="podium">
-        <PodiumPlace place={2} person={podium[1]} />
-        <PodiumPlace place={1} person={podium[0]} featured />
-        <PodiumPlace place={3} person={podium[2]} />
-      </div>
-
-      <section className="card">
-        <div className="section-row">
-          <h2>Top players</h2>
-          <span className="muted">Quiz XP</span>
+      {players.length === 0 ? (
+        <div className="card empty-card" style={{ textAlign: "center", padding: "32px 16px", margin: "16px 0" }}>
+          <div style={{ fontSize: "36px", marginBottom: "8px" }}>🏆</div>
+          <h3 style={{ margin: "0 0 6px" }}>Leaderboard starts at zero</h3>
+          <p className="muted" style={{ margin: 0, fontSize: "14px" }}>
+            No champions yet this week. Play daily quizzes to earn coins, build your streak, and top the leaderboard!
+          </p>
         </div>
-        {TOP_PLAYERS.map((person) => (
-          <div key={person.rank} className="leader-row">
-            <span className="rank">#{person.rank}</span>
-            <span className="avatar sm">{person.handle}</span>
-            <div>
-              <strong>{person.name}</strong>
-              <p>{person.days}</p>
-            </div>
-            <strong>{person.xp} XP</strong>
+      ) : (
+        <>
+          <div className="podium">
+            {podium[1] && <PodiumPlace place={2} person={podium[1]} />}
+            {podium[0] && <PodiumPlace place={1} person={podium[0]} featured />}
+            {podium[2] && <PodiumPlace place={3} person={podium[2]} />}
           </div>
-        ))}
-      </section>
+
+          {topPlayers.length > 0 && (
+            <section className="card leaderboard-card">
+              <div className="section-row">
+                <h2>Top Players</h2>
+                <span className="muted">Quiz Gold Coins</span>
+              </div>
+              {topPlayers.map((person, idx) => (
+                <div key={person.id || person.uid || idx} className="leader-row">
+                  <span className="rank">#{idx + 4}</span>
+                  <span className={`avatar sm leader-avatar rank-${idx + 4}`}>{person.handle}</span>
+                  <div>
+                    <strong>{person.name}</strong>
+                    <p>{person.days || `${person.streak || 0} days`}</p>
+                  </div>
+                  <strong className="xp-pill"><GoldCoin size={13} /> {person.xp}</strong>
+                </div>
+              ))}
+            </section>
+          )}
+        </>
+      )}
 
       <div className="your-rank">
         <div>
-          <p className="eyebrow light">Your Rank: #14</p>
+          <p className="eyebrow light">
+            {userRank ? `Your Rank: #${userRank}` : "Your Rank: Unranked"}
+          </p>
           <strong>
-            {initials} · 5-Day Streak
+            {initials} · {streak}-Day Streak
           </strong>
         </div>
         <div className="rank-meta">
-          <span>Top 15% this week</span>
-          <strong>{quizXp} XP</strong>
+          <span>{quizXp > 0 ? "Active contributor" : "Play a quiz to rank"}</span>
+          <strong style={{ display: "inline-flex", alignItems: "center" }}><GoldCoin size={16} /> {quizXp}</strong>
         </div>
       </div>
     </div>
@@ -67,15 +91,16 @@ export default function ChampionsScreen({ user, quizXp }) {
 }
 
 function PodiumPlace({ place, person, featured }) {
+  if (!person) return null;
   return (
     <div className={`podium-place place-${place}${featured ? " featured" : ""}`}>
-      <div className={`avatar ${featured ? "lg gold" : "md"}`}>{person.handle}</div>
+      <div className={`avatar ${featured ? "lg gold" : "md"} podium-avatar`}>{person.handle}</div>
       {featured ? <span className="crown">👑</span> : null}
       <strong>{person.name}</strong>
       <p>
-        🔥 {person.streak}-day streak
+        🔥 {person.streak || 0}-day streak
         <br />
-        {person.xp} XP
+        <span style={{ display: "inline-flex", alignItems: "center", marginTop: "2px" }}><GoldCoin size={14} /> {person.xp}</span>
       </p>
       <div className="stand">{place}</div>
     </div>

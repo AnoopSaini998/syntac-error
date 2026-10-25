@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { INITIAL_FEED, SAVED_DEFAULT_IDS, TOPIC_CATEGORIES } from "./data";
+import { DEBATE_XP_REQUIRED, getDebateNoun, INITIAL_FEED, SAVED_DEFAULT_IDS, TOPIC_CATEGORIES } from "./data";
 import {
   logOut,
   resetPassword,
@@ -50,7 +50,14 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [tab, setTab] = useState("home");
   const [category, setCategory] = useState("all");
-  const [feed, setFeed] = useState(INITIAL_FEED);
+  const [feed, setFeed] = useState(() => {
+    try {
+      const stored = localStorage.getItem("picks:feed");
+      return stored ? JSON.parse(stored) : INITIAL_FEED;
+    } catch {
+      return INITIAL_FEED;
+    }
+  });
   const [savedIds, setSavedIds] = useState(SAVED_DEFAULT_IDS);
   const [watchedIds, setWatchedIds] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -59,8 +66,27 @@ function App() {
   const [showSaved, setShowSaved] = useState(false);
   const [topics, setTopics] = useState([]);
   const [votes, setVotes] = useState({});
-  const [quizXp, setQuizXp] = useState(120);
-  const [totalXp, setTotalXp] = useState(4820);
+  const [votedIds, setVotedIds] = useState([]);
+  const [notesRead, setNotesRead] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [quizXp, setQuizXp] = useState(0);
+  const [totalXp, setTotalXp] = useState(0);
+  const [quizzes, setQuizzes] = useState(() => {
+    try {
+      const stored = localStorage.getItem("picks:quizzes");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [leaderboard, setLeaderboard] = useState(() => {
+    try {
+      const stored = localStorage.getItem("picks:leaderboard");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     if (preview) {
@@ -76,6 +102,38 @@ function App() {
   }, [preview]);
 
   useEffect(() => {
+    try {
+      const RESET_KEY = "picks:coins_zeroed_v5";
+      if (!localStorage.getItem(RESET_KEY)) {
+        setTotalXp(0);
+        setQuizXp(0);
+        setStreak(0);
+        localStorage.setItem(RESET_KEY, "true");
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("picks:")) {
+            try {
+              const val = JSON.parse(localStorage.getItem(k));
+              if (val && typeof val === "object") {
+                if (typeof val.totalXp === "number" || typeof val.quizXp === "number") {
+                  val.totalXp = 0;
+                  val.quizXp = 0;
+                  val.streak = 0;
+                  localStorage.setItem(k, JSON.stringify(val));
+                }
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
     if (!user?.uid) return;
     const raw = localStorage.getItem(`picks:${user.uid}`);
     if (raw) {
@@ -83,11 +141,26 @@ function App() {
         const parsed = JSON.parse(raw);
         if (parsed.savedIds) setSavedIds(parsed.savedIds);
         if (parsed.watchedIds) setWatchedIds(parsed.watchedIds);
-        if (parsed.quizXp) setQuizXp(parsed.quizXp);
-        if (parsed.totalXp) setTotalXp(parsed.totalXp);
+        const qXp = (parsed.quizXp === 120 || !parsed.quizXp) ? 0 : parsed.quizXp;
+        const tXp = (parsed.totalXp === 4820 || !parsed.totalXp) ? 0 : parsed.totalXp;
+        setQuizXp(qXp);
+        setTotalXp(tXp);
+        setStreak(parsed.streak || 0);
+        if (parsed.votedIds) setVotedIds(parsed.votedIds);
+        if (parsed.votes) setVotes(parsed.votes);
+        if (parsed.notesRead) setNotesRead(true);
       } catch {
         /* ignore */
       }
+    } else {
+      setSavedIds([]);
+      setWatchedIds([]);
+      setQuizXp(0);
+      setTotalXp(0);
+      setStreak(0);
+      setVotedIds([]);
+      setVotes({});
+      setNotesRead(false);
     }
   }, [user?.uid]);
 
@@ -95,9 +168,33 @@ function App() {
     if (!user?.uid) return;
     localStorage.setItem(
       `picks:${user.uid}`,
-      JSON.stringify({ savedIds, watchedIds, quizXp, totalXp })
+      JSON.stringify({ savedIds, watchedIds, quizXp, totalXp, streak, votedIds, votes, notesRead })
     );
-  }, [user?.uid, savedIds, watchedIds, quizXp, totalXp]);
+  }, [user?.uid, savedIds, watchedIds, quizXp, totalXp, streak, votedIds, votes, notesRead]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("picks:feed", JSON.stringify(feed));
+    } catch {
+      /* ignore */
+    }
+  }, [feed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("picks:quizzes", JSON.stringify(quizzes));
+    } catch {
+      /* ignore */
+    }
+  }, [quizzes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("picks:leaderboard", JSON.stringify(leaderboard));
+    } catch {
+      /* ignore */
+    }
+  }, [leaderboard]);
 
   const runAuth = async (action) => {
     setAuthError("");
@@ -130,6 +227,52 @@ function App() {
     );
   };
 
+  const toggleUpvote = (id) => {
+    const isVoted = votedIds.includes(id);
+    setVotedIds((current) =>
+      isVoted ? current.filter((item) => item !== id) : [...current, id]
+    );
+    setFeed((currentFeed) =>
+      currentFeed.map((item) => {
+        if (item.id === id) {
+          const delta = isVoted ? -1 : 1;
+          return { ...item, upvotes: Math.max(0, (item.upvotes || 0) + delta) };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleVoteShowdown = (id, choice) => {
+    const prevChoice = votes[id];
+    if (prevChoice === choice) return;
+    setVotes((current) => ({ ...current, [id]: choice }));
+    setFeed((current) =>
+      current.map((item) => {
+        if (item.id === id && item.type === "showdown") {
+          let leftVotes = item.left.votes || 0;
+          let rightVotes = item.right.votes || 0;
+          if (prevChoice === item.left.id) leftVotes = Math.max(0, leftVotes - 1);
+          if (prevChoice === item.right.id) rightVotes = Math.max(0, rightVotes - 1);
+          if (choice === item.left.id) leftVotes += 1;
+          if (choice === item.right.id) rightVotes += 1;
+          return {
+            ...item,
+            left: { ...item.left, votes: leftVotes },
+            right: { ...item.right, votes: rightVotes },
+            votes: leftVotes + rightVotes,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const markWatched = (id, liked) => {
+    setWatchedIds((current) => (current.includes(id) ? current : [...current, id]));
+    if (liked) toggleUpvote(id);
+  };
+
   const savedItems = useMemo(
     () => feed.filter((item) => item.type === "recommendation" && savedIds.includes(item.id)),
     [feed, savedIds]
@@ -142,29 +285,40 @@ function App() {
 
   const myPicks = useMemo(() => {
     const ownName = user?.displayName;
+    const ownEmail = user?.email;
+    const ownHandle = ownEmail ? `@${ownEmail.split("@")[0]}` : null;
     return feed.filter(
       (item) =>
         item.type === "recommendation" &&
-        (item.mine || item.author === ownName || ["rec-6", "rec-1", "rec-7", "rec-8"].includes(item.id))
+        (item.mine ||
+          (item.authorId && item.authorId === user?.uid) ||
+          (ownName && item.author === ownName) ||
+          (ownHandle && item.recommendedBy === ownHandle))
     );
   }, [feed, user]);
 
-  const addRecommendation = ({ category: nextCategory, title, reason }) => {
+  const deletePost = (id) => {
+    setFeed((current) => current.filter((item) => item.id !== id));
+    setSavedIds((current) => current.filter((savedId) => savedId !== id));
+    setVotedIds((current) => current.filter((votedId) => votedId !== id));
+  };
+
+  const addRecommendation = ({ category: nextCategory, title, reason, image }) => {
     const next = {
       id: `mine-${Date.now()}`,
       type: "recommendation",
       category: nextCategory,
-      author: user?.displayName || "You",
+      author: user?.displayName || user?.email?.split("@")[0] || "You",
       handle: getInitials(user),
-      rank: "Lvl 12 Curator",
+      rank: "Lvl 1 Scout",
       title,
       quote: reason,
-      image:
-        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
-      upvotes: 1,
+      image: image || null,
+      upvotes: 0,
       comments: 0,
       recommendedBy: user?.email ? `@${user.email.split("@")[0]}` : "@you",
       mine: true,
+      authorId: user?.uid,
     };
     setFeed((current) => [next, ...current]);
     setTotalXp((xp) => xp + 15);
@@ -172,12 +326,19 @@ function App() {
     setCategory("all");
   };
 
+  const debateNoun = useMemo(() => getDebateNoun(category, topics), [category, topics]);
+  const canDebate = totalXp >= DEBATE_XP_REQUIRED;
+
   const addShowdown = ({ question, left, right }) => {
+    const nextCategory =
+      category !== "all"
+        ? category
+        : TOPIC_CATEGORIES[topics[0]] || "general";
     const next = {
       id: `showdown-${Date.now()}`,
       type: "showdown",
-      category: "movies",
-      author: user?.displayName?.split(" ")[0]?.toLowerCase() || "you",
+      category: nextCategory,
+      author: user?.displayName?.split(" ")[0]?.toLowerCase() || user?.email?.split("@")[0] || "you",
       handle: getInitials(user),
       title: question,
       left: {
@@ -186,6 +347,7 @@ function App() {
         subtitle: "Your pick",
         image:
           "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=800&q=80",
+        votes: 0,
       },
       right: {
         id: "right",
@@ -193,25 +355,58 @@ function App() {
         subtitle: "The challenger",
         image:
           "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
+        votes: 0,
       },
       comments: 0,
-      votes: 1,
+      votes: 0,
       endsIn: "24h",
+      mine: true,
+      authorId: user?.uid,
     };
     setFeed((current) => [next, ...current]);
     setTotalXp((xp) => xp + 10);
     setTab("home");
-    setCategory("movies");
+    if (nextCategory !== "all") setCategory(nextCategory);
+  };
+
+  const handleAddQuiz = (quizData) => {
+    const newQuiz = {
+      id: `quiz-${Date.now()}`,
+      author: user?.displayName || user?.email?.split("@")[0] || "You",
+      ...quizData,
+    };
+    setQuizzes((current) => [newQuiz, ...current]);
+    setTotalXp((xp) => xp + 10);
+  };
+
+  const handleCompleteQuiz = (earnedXp, isCorrect) => {
+    const nextQuizXp = quizXp + earnedXp;
+    const nextTotalXp = totalXp + earnedXp;
+    const nextStreak = isCorrect ? streak + 1 : streak;
+    setQuizXp(nextQuizXp);
+    setTotalXp(nextTotalXp);
+    if (isCorrect) setStreak(nextStreak);
+
+    if (user) {
+      setLeaderboard((current) => {
+        const filtered = current.filter((p) => p.uid !== user.uid);
+        const userEntry = {
+          id: user.uid,
+          uid: user.uid,
+          name: user.displayName || user.email?.split("@")[0] || "You",
+          handle: getInitials(user),
+          xp: nextQuizXp,
+          streak: nextStreak,
+          days: `${nextStreak} day${nextStreak === 1 ? "" : "s"}`,
+        };
+        return [...filtered, userEntry].sort((a, b) => b.xp - a.xp);
+      });
+    }
   };
 
   const phone = (content) => (
     <div className="stage">
       <div className="phone">
-        <div className="status-bar" aria-hidden="true">
-          <span>9:41</span>
-          <span className="island" />
-          <span>📶 🔋</span>
-        </div>
         {content}
       </div>
     </div>
@@ -248,10 +443,9 @@ function App() {
             watchedIds={watchedIds}
             onBack={() => setShowSaved(false)}
             onUnsave={toggleSave}
-            onMarkWatched={(id) =>
-              setWatchedIds((current) =>
-                current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-              )
+            onMarkWatched={markWatched}
+            onUnmarkWatched={(id) =>
+              setWatchedIds((current) => current.filter((item) => item !== id))
             }
           />
         ) : (
@@ -266,32 +460,51 @@ function App() {
                 onOpenFilters={() => setFilterOpen(true)}
                 onOpenPost={() => setPostOpen(true)}
                 onCreateShowdown={() => setShowdownOpen(true)}
+                debateNoun={debateNoun}
+                canDebate={canDebate}
+                debateXpRequired={DEBATE_XP_REQUIRED}
                 savedIds={savedIds}
                 onToggleSave={toggleSave}
+                votedIds={votedIds}
+                onUpvote={toggleUpvote}
                 votes={votes}
-                onVote={(id, choice) => setVotes((current) => ({ ...current, [id]: choice }))}
+                notesRead={notesRead}
+                onOpenNotifications={() => setNotesRead(true)}
+                onVote={handleVoteShowdown}
+                onDeletePost={deletePost}
+                totalXp={totalXp}
               />
             )}
-            {tab === "champions" && <ChampionsScreen user={user} quizXp={quizXp} />}
+            {tab === "champions" && (
+              <ChampionsScreen
+                user={user}
+                quizXp={quizXp}
+                streak={streak}
+                leaderboard={leaderboard}
+              />
+            )}
             {tab === "quizzes" && (
               <QuizzesScreen
                 user={user}
                 quizXp={quizXp}
+                streak={streak}
+                quizzes={quizzes}
                 onOpenLeaderboard={() => setTab("champions")}
-                onCompleteQuiz={(xp) => {
-                  setQuizXp((current) => current + xp);
-                  setTotalXp((current) => current + xp);
-                }}
+                onCompleteQuiz={handleCompleteQuiz}
+                onCreateQuiz={handleAddQuiz}
+                leaderboard={leaderboard}
               />
             )}
             {tab === "profile" && (
               <ProfileScreen
                 user={user}
                 totalXp={totalXp}
+                streak={streak}
                 picks={myPicks}
                 savedCount={savedIds.length}
                 onOpenSaved={() => setShowSaved(true)}
                 onSignOut={handleSignOut}
+                onDeletePost={deletePost}
               />
             )}
           </>
@@ -324,6 +537,7 @@ function App() {
       />
       <ShowdownModal
         open={showdownOpen}
+        debateNoun={debateNoun}
         onClose={() => setShowdownOpen(false)}
         onSubmit={addShowdown}
       />
